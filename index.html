@@ -1,0 +1,378 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fall Detection Dashboard</title>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f2f5fa;
+      color: #202b3c;
+    }
+
+    header {
+      background: #172554;
+      color: white;
+      padding: 24px 16px;
+      text-align: center;
+    }
+
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; color: #cbd5e1; }
+
+    main {
+      max-width: 1050px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .status {
+      padding: 12px;
+      background: white;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      border-left: 5px solid #94a3b8;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 3px 12px #0000000b;
+    }
+
+    .card h3 {
+      margin: 0 0 16px;
+      color: #475569;
+      font-size: 15px;
+    }
+
+    .value {
+      font-size: 30px;
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+
+    .unit { font-size: 15px; color: #64748b; }
+
+    .wide { margin-top: 16px; }
+
+    .alert {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 16px;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+
+    .normal {
+      background: #dcfce7;
+      color: #166534;
+      padding: 16px;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 12px;
+      margin: 5px 5px 0 0;
+      cursor: pointer;
+      font-weight: bold;
+      color: white;
+      background: #2563eb;
+    }
+
+    button.off { background: #64748b; }
+    button.mode { background: #7c3aed; }
+
+    canvas { width: 100% !important; }
+
+    footer {
+      text-align: center;
+      color: #64748b;
+      padding: 24px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 600px) {
+      .grid, .controls { grid-template-columns: 1fr; }
+      .value { font-size: 26px; }
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>FALL DETECTION</h1>
+  <p>ESP32 · MPU6050 · FreeRTOS · MQTT</p>
+</header>
+
+<main>
+  <div class="status" id="connection">
+    Đang kết nối MQTT...
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Gia tốc tổng</h3>
+      <div class="value"><span id="accel">--</span>
+        <span class="unit">g</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Góc Roll</h3>
+      <div class="value"><span id="roll">--</span>
+        <span class="unit">°</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Gia tốc X / Y / Z</h3>
+      <div class="value" style="font-size:19px">
+        <span id="ax">--</span> /
+        <span id="ay">--</span> /
+        <span id="az">--</span> g
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Góc Pitch</h3>
+      <div class="value"><span id="pitch">--</span>
+        <span class="unit">°</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="wide" id="fallStatus" class="normal">
+    Đang chờ dữ liệu cảm biến...
+  </div>
+
+  <div class="card wide">
+    <h3>Biểu đồ gia tốc tổng theo thời gian</h3>
+    <canvas id="accelChart"></canvas>
+  </div>
+
+  <div class="card wide">
+    <h3>Biểu đồ góc nghiêng theo thời gian</h3>
+    <canvas id="angleChart"></canvas>
+  </div>
+
+  <div class="card wide">
+    <h3>Điều khiển thiết bị</h3>
+    <p>Chế độ: <strong id="modeText">AUTO</strong></p>
+    <button class="mode" onclick="setMode('MANUAL')">
+      Chế độ MANUAL
+    </button>
+    <button class="mode" onclick="setMode('AUTO')">
+      Chế độ AUTO
+    </button>
+
+    <hr>
+
+    <div class="controls">
+      <div>
+        <h4>LED cảnh báo</h4>
+        <button onclick="controlDevice('led','ON')">
+          Bật LED
+        </button>
+        <button class="off"
+                onclick="controlDevice('led','OFF')">
+          Tắt LED
+        </button>
+        <p>Trạng thái lệnh: <span id="ledState">--</span></p>
+      </div>
+
+      <div>
+        <h4>Còi cảnh báo</h4>
+        <button onclick="controlDevice('buzzer','ON')">
+          Bật còi
+        </button>
+        <button class="off"
+                onclick="controlDevice('buzzer','OFF')">
+          Tắt còi
+        </button>
+        <p>Trạng thái lệnh: <span id="buzzerState">--</span></p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Fall Detection Project · ESP32 + MPU6050
+</footer>
+
+<script>
+  const BROKER = "wss://broker.hivemq.com:8884/mqtt";
+
+  const TOPIC_DATA = "utc/falldetect/data";
+  const TOPIC_LED = "utc/falldetect/control/led";
+  const TOPIC_BUZZER = "utc/falldetect/control/buzzer";
+  const TOPIC_MODE = "utc/falldetect/control/mode";
+
+  const connection = document.getElementById("connection");
+  const fallStatus = document.getElementById("fallStatus");
+
+  let currentMode = "AUTO";
+
+  const options = {
+    clean: true,
+    connectTimeout: 10000,
+    reconnectPeriod: 3000
+  };
+
+  const client = mqtt.connect(BROKER, options);
+
+  client.on("connect", () => {
+    connection.textContent = "Đã kết nối MQTT Broker";
+    connection.style.borderLeftColor = "#16a34a";
+    client.subscribe(TOPIC_DATA);
+  });
+
+  client.on("reconnect", () => {
+    connection.textContent = "Đang kết nối lại MQTT...";
+    connection.style.borderLeftColor = "#eab308";
+  });
+
+  client.on("error", (err) => {
+    connection.textContent = "Lỗi MQTT: " + err.message;
+  });
+
+  const labels = [];
+  const accelValues = [];
+  const angleValues = [];
+
+  function makeChart(canvasId, label, data, color) {
+    return new Chart(document.getElementById(canvasId), {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: label,
+          data: data,
+          borderColor: color,
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.2
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: { title: { display: true, text: "Mẫu đo" } },
+          y: { beginAtZero: false }
+        }
+      }
+    });
+  }
+
+  const accelChart = makeChart(
+    "accelChart", "Gia tốc (g)", accelValues, "#2563eb"
+  );
+
+  const angleChart = makeChart(
+    "angleChart", "Góc Roll (°)", angleValues, "#dc2626"
+  );
+
+  client.on("message", (topic, message) => {
+    if (topic !== TOPIC_DATA) return;
+
+    try {
+      const d = JSON.parse(message.toString());
+
+      document.getElementById("accel").textContent =
+        Number(d.accel).toFixed(3);
+
+      document.getElementById("ax").textContent =
+        Number(d.ax).toFixed(2);
+      document.getElementById("ay").textContent =
+        Number(d.ay).toFixed(2);
+      document.getElementById("az").textContent =
+        Number(d.az).toFixed(2);
+
+      document.getElementById("roll").textContent =
+        Number(d.roll).toFixed(1);
+      document.getElementById("pitch").textContent =
+        Number(d.pitch).toFixed(1);
+
+      if (Number(d.fall) === 1 || d.fall === true) {
+        fallStatus.className = "wide alert";
+        fallStatus.textContent =
+          "CẢNH BÁO: PHÁT HIỆN DẤU HIỆU TÉ NGÃ!";
+      } else {
+        fallStatus.className = "wide normal";
+        fallStatus.textContent =
+          "Trạng thái: Chưa phát hiện dấu hiệu té ngã";
+      }
+
+      labels.push(new Date().toLocaleTimeString());
+      accelValues.push(Number(d.accel));
+      angleValues.push(Number(d.roll));
+
+      if (labels.length > 30) {
+        labels.shift();
+        accelValues.shift();
+        angleValues.shift();
+      }
+
+      accelChart.update();
+      angleChart.update();
+
+    } catch (e) {
+      console.error("JSON khong hop le:", e);
+    }
+  });
+
+  function controlDevice(device, state) {
+    if (!client.connected) {
+      alert("Chưa kết nối MQTT Broker!");
+      return;
+    }
+
+    const topic = device === "led" ? TOPIC_LED : TOPIC_BUZZER;
+
+    // Gui lenh manual; ESP32 tu chuyen sang MANUAL
+    client.publish(topic, state);
+
+    document.getElementById(
+      device === "led" ? "ledState" : "buzzerState"
+    ).textContent = state;
+  }
+
+  function setMode(mode) {
+    if (!client.connected) {
+      alert("Chưa kết nối MQTT Broker!");
+      return;
+    }
+
+    client.publish(TOPIC_MODE, mode);
+    currentMode = mode;
+    document.getElementById("modeText").textContent = mode;
+  }
+</script>
+</body>
+</html>
