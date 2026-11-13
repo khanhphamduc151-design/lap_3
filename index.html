@@ -2,377 +2,548 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fall Detection Dashboard</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FallGuard - Fall Detection System</title>
 
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <style>
-    * { box-sizing: border-box; }
+<style>
+:root {
+  --bg:#f3f6fc;
+  --white:#ffffff;
+  --text:#19243b;
+  --muted:#7b879c;
+  --blue:#4263eb;
+  --green:#18a874;
+  --yellow:#e9a008;
+  --red:#e5484d;
+  --border:#e7ebf3;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Be Vietnam Pro',Arial,sans-serif;
+}
+.container { max-width:1350px; margin:auto; padding:25px; }
+header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:15px;
+  margin-bottom:25px;
+}
+.brand { display:flex; align-items:center; gap:13px; }
+.logo {
+  width:48px;height:48px;border-radius:15px;
+  background:linear-gradient(135deg,#4263eb,#8297ff);
+  color:white;display:grid;place-items:center;
+  font-size:26px;font-weight:800;
+}
+h1 { margin:0;font-size:23px;font-weight:800; }
+.subtitle { color:var(--muted);font-size:11px;margin-top:5px; }
+.connection {
+  background:white;border:1px solid var(--border);
+  border-radius:12px;padding:12px 15px;
+  display:flex;align-items:center;gap:9px;
+  font-size:12px;font-weight:700;
+}
+.dot { width:9px;height:9px;border-radius:50%;background:#aaa; }
+.dot.online { background:var(--green); }
+.dot.offline { background:var(--red); }
 
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f2f5fa;
-      color: #202b3c;
-    }
+.hero {
+  background:linear-gradient(115deg,#1b2c53,#3857a0);
+  color:white;border-radius:22px;padding:27px;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:20px;margin-bottom:25px;
+}
+.kicker { font-size:11px;letter-spacing:2px;opacity:.7; }
+.hero h2 { font-size:25px;margin:10px 0; }
+.hero p { font-size:12px;color:#dbe4ff;line-height:1.8;margin:0; }
+.hero-status {
+  background:#ffffff15;border:1px solid #ffffff30;
+  border-radius:15px;padding:17px;min-width:190px;
+}
+.hero-status small { display:block;color:#dbe4ff;margin-bottom:7px; }
+.hero-status strong { font-size:16px; }
 
-    header {
-      background: #172554;
-      color: white;
-      padding: 24px 16px;
-      text-align: center;
-    }
+.section-title {
+  display:flex;justify-content:space-between;align-items:center;
+  margin:25px 2px 13px;gap:10px;
+}
+.section-title h3 { margin:0;font-size:15px; }
+.section-title span { color:var(--muted);font-size:11px; }
 
-    header h1 { margin: 0 0 8px; }
-    header p { margin: 0; color: #cbd5e1; }
+.metrics {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;
+}
+.card,.panel {
+  background:var(--white);border:1px solid var(--border);
+  border-radius:18px;box-shadow:0 7px 25px #1d315008;
+}
+.card { padding:20px; }
+.metric-top { display:flex;justify-content:space-between;align-items:center; }
+.metric-name { color:var(--muted);font-size:12px;font-weight:600; }
+.metric-icon {
+  width:36px;height:36px;border-radius:12px;
+  background:#edf1ff;display:grid;place-items:center;font-size:18px;
+}
+.metric-value { font-size:30px;font-weight:800;margin-top:17px; }
+.unit { font-size:13px;color:var(--muted); }
+.metric-note { color:var(--muted);font-size:10px;margin-top:7px; }
 
-    main {
-      max-width: 1050px;
-      margin: 24px auto;
-      padding: 0 16px;
-    }
+.main-grid {
+  display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,.8fr);
+  gap:16px;align-items:start;
+}
+.panel { padding:21px;margin-bottom:16px; }
+.panel-head {
+  display:flex;justify-content:space-between;align-items:center;
+  gap:12px;margin-bottom:19px;
+}
+.panel h3 { margin:0;font-size:14px; }
+.panel-desc { color:var(--muted);font-size:10px;margin-top:5px; }
+.live {
+  background:#e7f8f0;color:var(--green);padding:7px 10px;
+  border-radius:8px;font-size:10px;font-weight:800;
+}
+.chart-box { height:235px; }
 
-    .status {
-      padding: 12px;
-      background: white;
-      border-radius: 10px;
-      margin-bottom: 18px;
-      border-left: 5px solid #94a3b8;
-    }
+.led-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:10px; }
+.led-card { border:1px solid var(--border);border-radius:13px;padding:14px; }
+.led-title { font-size:11px;font-weight:700;display:flex;align-items:center;gap:8px; }
+.bulb { width:11px;height:11px;border-radius:50%;background:#dce1e9; }
+.bulb.on.green { background:var(--green);box-shadow:0 0 12px #18a87470; }
+.bulb.on.yellow { background:#f2b51c;box-shadow:0 0 12px #f2b51c70; }
+.bulb.on.red { background:var(--red);box-shadow:0 0 12px #e5484d70; }
+.led-state { font-size:12px;font-weight:800;margin-top:12px; }
+.led-desc { font-size:10px;color:var(--muted);margin-top:5px; }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
+.mode-switch {
+  display:flex;background:#f0f3f9;padding:4px;border-radius:11px;gap:4px;
+}
+.mode-switch button {
+  flex:1;border:0;background:transparent;border-radius:8px;
+  padding:11px 8px;font-family:inherit;font-size:11px;
+  font-weight:800;color:var(--muted);cursor:pointer;
+}
+.mode-switch button.active { background:white;color:var(--blue);box-shadow:0 2px 7px #0000000c; }
+.control-row {
+  display:flex;justify-content:space-between;align-items:center;
+  gap:12px;padding:16px 0;border-bottom:1px solid var(--border);
+}
+.control-row:last-of-type { border-bottom:0; }
+.control-name { font-size:12px;font-weight:700; }
+.control-desc { color:var(--muted);font-size:10px;margin-top:5px; }
+.toggle {
+  width:46px;height:26px;border:0;border-radius:30px;
+  background:#d8deea;position:relative;cursor:pointer;flex-shrink:0;
+}
+.toggle:before {
+  content:"";position:absolute;left:4px;top:4px;width:18px;height:18px;
+  background:white;border-radius:50%;transition:.2s;
+  box-shadow:0 2px 4px #0002;
+}
+.toggle.on { background:var(--blue); }
+.toggle.on:before { left:24px; }
+.toggle:disabled { opacity:.35;cursor:not-allowed; }
 
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 14px;
-      box-shadow: 0 3px 12px #0000000b;
-    }
+.info {
+  background:#f5f7fc;padding:12px;border-radius:10px;
+  color:var(--muted);font-size:10px;line-height:1.7;margin-top:13px;
+}
+.thresholds { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+.threshold { background:#f7f9fd;border:1px solid var(--border);padding:13px;border-radius:12px; }
+.threshold strong { font-size:11px;display:block;margin-bottom:6px; }
+.threshold span { color:var(--muted);font-size:10px; }
 
-    .card h3 {
-      margin: 0 0 16px;
-      color: #475569;
-      font-size: 15px;
-    }
+.history { display:flex;flex-direction:column;gap:9px; }
+.event { display:flex;gap:11px;padding:12px;border:1px solid var(--border);border-radius:12px; }
+.event-icon { background:#e7f8f0;padding:8px;border-radius:9px;height:33px; }
+.event-icon.warn { background:#fff5d9; }
+.event-icon.danger { background:#fff0f0; }
+.event-title { font-size:11px;font-weight:700; }
+.event-time { color:var(--muted);font-size:10px;margin-top:5px; }
+.empty { text-align:center;padding:18px;color:var(--muted);font-size:11px; }
+footer { color:var(--muted);font-size:10px;display:flex;justify-content:space-between;gap:10px;padding:8px 2px 15px; }
+#toast {
+  position:fixed;bottom:20px;right:20px;background:#19243b;color:white;
+  padding:13px 17px;border-radius:11px;font-size:12px;
+  opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;
+}
+#toast.show { opacity:1;transform:translateY(0); }
 
-    .value {
-      font-size: 30px;
-      font-weight: bold;
-      overflow-wrap: anywhere;
-    }
-
-    .unit { font-size: 15px; color: #64748b; }
-
-    .wide { margin-top: 16px; }
-
-    .alert {
-      background: #fee2e2;
-      color: #991b1b;
-      padding: 16px;
-      border-radius: 10px;
-      font-weight: bold;
-    }
-
-    .normal {
-      background: #dcfce7;
-      color: #166534;
-      padding: 16px;
-      border-radius: 10px;
-      font-weight: bold;
-    }
-
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 9px;
-      padding: 12px;
-      margin: 5px 5px 0 0;
-      cursor: pointer;
-      font-weight: bold;
-      color: white;
-      background: #2563eb;
-    }
-
-    button.off { background: #64748b; }
-    button.mode { background: #7c3aed; }
-
-    canvas { width: 100% !important; }
-
-    footer {
-      text-align: center;
-      color: #64748b;
-      padding: 24px;
-      font-size: 13px;
-    }
-
-    @media (max-width: 600px) {
-      .grid, .controls { grid-template-columns: 1fr; }
-      .value { font-size: 26px; }
-    }
-  </style>
+@media(max-width:900px) {
+  .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .main-grid { grid-template-columns:1fr; }
+}
+@media(max-width:550px) {
+  .container { padding:13px; }
+  header { align-items:flex-start;flex-direction:column; }
+  .connection { width:100%; }
+  .hero { flex-direction:column;align-items:flex-start;padding:21px; }
+  .hero h2 { font-size:21px; }
+  .hero-status { width:100%; }
+  .card { padding:14px; }
+  .metric-value { font-size:24px; }
+  .panel { padding:15px; }
+  .led-grid { grid-template-columns:1fr; }
+  .section-title { align-items:flex-start;flex-direction:column; }
+  footer { flex-direction:column; }
+}
+</style>
 </head>
 
 <body>
+<div class="container">
+
 <header>
-  <h1>FALL DETECTION</h1>
-  <p>ESP32 · MPU6050 · FreeRTOS · MQTT</p>
+  <div class="brand">
+    <div class="logo">F</div>
+    <div>
+      <h1>FallGuard</h1>
+      <div class="subtitle">Hệ thống giám sát và cảnh báo té ngã · ESP32 + MPU6050</div>
+    </div>
+  </div>
+  <div class="connection">
+    <span class="dot" id="connectionDot"></span>
+    <span id="connectionText">Đang kết nối MQTT...</span>
+  </div>
 </header>
 
-<main>
-  <div class="status" id="connection">
-    Đang kết nối MQTT...
+<section class="hero">
+  <div>
+    <div class="kicker">REAL-TIME MONITORING</div>
+    <h2 id="heroTitle">Đang chờ dữ liệu cảm biến</h2>
+    <p id="heroDesc">Khi ESP32 kết nối thành công, dữ liệu sẽ hiển thị tại đây.</p>
+  </div>
+  <div class="hero-status">
+    <small>TRẠNG THÁI HỆ THỐNG</small>
+    <strong id="heroState">Chưa có dữ liệu</strong>
+    <div style="font-size:10px;color:#dbe4ff;margin-top:8px" id="lastUpdate">Cập nhật lần cuối: --</div>
+  </div>
+</section>
+
+<div class="section-title"><h3>Thông số cảm biến</h3><span>Dữ liệu trực tiếp từ ESP32</span></div>
+<section class="metrics">
+  <article class="card">
+    <div class="metric-top"><div class="metric-name">Gia tốc tổng</div><div class="metric-icon">↗</div></div>
+    <div class="metric-value"><span id="accelValue">--</span> <span class="unit">g</span></div>
+    <div class="metric-note">Độ lớn gia tốc ba trục</div>
+  </article>
+  <article class="card">
+    <div class="metric-top"><div class="metric-name">Góc Roll</div><div class="metric-icon">↻</div></div>
+    <div class="metric-value"><span id="rollValue">--</span><span class="unit">°</span></div>
+    <div class="metric-note">Góc nghiêng quanh trục X</div>
+  </article>
+  <article class="card">
+    <div class="metric-top"><div class="metric-name">Góc Pitch</div><div class="metric-icon">↕</div></div>
+    <div class="metric-value"><span id="pitchValue">--</span><span class="unit">°</span></div>
+    <div class="metric-note">Góc nghiêng quanh trục Y</div>
+  </article>
+  <article class="card">
+    <div class="metric-top"><div class="metric-name">Mức cảnh báo</div><div class="metric-icon">⚑</div></div>
+    <div class="metric-value" style="font-size:23px" id="levelValue">--</div>
+    <div class="metric-note" id="levelNote">Đang chờ dữ liệu</div>
+  </article>
+</section>
+
+<div class="section-title"><h3>Giám sát và điều khiển</h3><span>Biểu đồ · Thiết bị · Cảnh báo</span></div>
+<section class="main-grid">
+  <div>
+    <article class="panel">
+      <div class="panel-head">
+        <div><h3>Biểu đồ gia tốc theo thời gian</h3><div class="panel-desc">30 mẫu gần nhất · đơn vị g</div></div>
+        <span class="live">● LIVE</span>
+      </div>
+      <div class="chart-box"><canvas id="accelChart"></canvas></div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div><h3>Trạng thái thiết bị</h3><div class="panel-desc">Đèn LED và còi cảnh báo</div></div>
+      </div>
+      <div class="led-grid">
+        <div class="led-card">
+          <div class="led-title"><span class="bulb" id="greenLed"></span>LED xanh</div>
+          <div class="led-state" id="greenText">Chưa rõ</div>
+          <div class="led-desc">Trạng thái bình thường</div>
+        </div>
+        <div class="led-card">
+          <div class="led-title"><span class="bulb" id="yellowLed"></span>LED vàng</div>
+          <div class="led-state" id="yellowText">Chưa rõ</div>
+          <div class="led-desc">Cảnh báo nhẹ</div>
+        </div>
+        <div class="led-card">
+          <div class="led-title"><span class="bulb" id="redLed"></span>LED đỏ / còi</div>
+          <div class="led-state" id="redText">Chưa rõ</div>
+          <div class="led-desc">Cảnh báo mạnh</div>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div><h3>Ngưỡng cảnh báo mô phỏng</h3><div class="panel-desc">Theo logic đang sử dụng trong chương trình</div></div>
+      </div>
+      <div class="thresholds">
+        <div class="threshold"><strong>🟢 Bình thường</strong><span>Gia tốc ≤ 1.3 g</span></div>
+        <div class="threshold"><strong>🟡 Cảnh báo nhẹ</strong><span>1.3 g &lt; gia tốc ≤ 2.2 g</span></div>
+        <div class="threshold"><strong>🔴 Cảnh báo mạnh</strong><span>Gia tốc &gt; 2.2 g</span></div>
+        <div class="threshold"><strong>📐 Góc nghiêng</strong><span>Theo dõi Roll và Pitch</span></div>
+      </div>
+    </article>
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <h3>Gia tốc tổng</h3>
-      <div class="value"><span id="accel">--</span>
-        <span class="unit">g</span>
+  <div>
+    <article class="panel">
+      <div class="panel-head">
+        <div><h3>Điều khiển thiết bị</h3><div class="panel-desc">Chọn chế độ hoạt động</div></div>
       </div>
-    </div>
+      <div class="mode-switch">
+        <button id="autoModeBtn" class="active" type="button">Tự động</button>
+        <button id="manualModeBtn" type="button">Thủ công</button>
+      </div>
 
-    <div class="card">
-      <h3>Góc Roll</h3>
-      <div class="value"><span id="roll">--</span>
-        <span class="unit">°</span>
+      <div class="control-row">
+        <div><div class="control-name">Đèn đỏ</div><div class="control-desc" id="ledHelp">ESP32 tự điều khiển</div></div>
+        <button class="toggle" id="ledToggle" type="button" disabled aria-label="Bật tắt đèn đỏ"></button>
       </div>
-    </div>
+      <div class="control-row">
+        <div><div class="control-name">Còi cảnh báo</div><div class="control-desc" id="buzzerHelp">ESP32 tự điều khiển</div></div>
+        <button class="toggle" id="buzzerToggle" type="button" disabled aria-label="Bật tắt còi"></button>
+      </div>
+      <div class="info" id="modeNote">
+        Chế độ Tự động: ESP32 điều khiển thiết bị dựa trên dữ liệu cảm biến.
+      </div>
+    </article>
 
-    <div class="card">
-      <h3>Gia tốc X / Y / Z</h3>
-      <div class="value" style="font-size:19px">
-        <span id="ax">--</span> /
-        <span id="ay">--</span> /
-        <span id="az">--</span> g
+    <article class="panel">
+      <div class="panel-head">
+        <div><h3>Nhật ký cảnh báo</h3><div class="panel-desc">Các sự kiện mới nhất</div></div>
+        <span class="live" id="eventCount">0 sự kiện</span>
       </div>
-    </div>
-
-    <div class="card">
-      <h3>Góc Pitch</h3>
-      <div class="value"><span id="pitch">--</span>
-        <span class="unit">°</span>
-      </div>
-    </div>
+      <div class="history" id="alertHistory"><div class="empty">Chưa có sự kiện nào.</div></div>
+    </article>
   </div>
-
-  <div class="wide" id="fallStatus" class="normal">
-    Đang chờ dữ liệu cảm biến...
-  </div>
-
-  <div class="card wide">
-    <h3>Biểu đồ gia tốc tổng theo thời gian</h3>
-    <canvas id="accelChart"></canvas>
-  </div>
-
-  <div class="card wide">
-    <h3>Biểu đồ góc nghiêng theo thời gian</h3>
-    <canvas id="angleChart"></canvas>
-  </div>
-
-  <div class="card wide">
-    <h3>Điều khiển thiết bị</h3>
-    <p>Chế độ: <strong id="modeText">AUTO</strong></p>
-    <button class="mode" onclick="setMode('MANUAL')">
-      Chế độ MANUAL
-    </button>
-    <button class="mode" onclick="setMode('AUTO')">
-      Chế độ AUTO
-    </button>
-
-    <hr>
-
-    <div class="controls">
-      <div>
-        <h4>LED cảnh báo</h4>
-        <button onclick="controlDevice('led','ON')">
-          Bật LED
-        </button>
-        <button class="off"
-                onclick="controlDevice('led','OFF')">
-          Tắt LED
-        </button>
-        <p>Trạng thái lệnh: <span id="ledState">--</span></p>
-      </div>
-
-      <div>
-        <h4>Còi cảnh báo</h4>
-        <button onclick="controlDevice('buzzer','ON')">
-          Bật còi
-        </button>
-        <button class="off"
-                onclick="controlDevice('buzzer','OFF')">
-          Tắt còi
-        </button>
-        <p>Trạng thái lệnh: <span id="buzzerState">--</span></p>
-      </div>
-    </div>
-  </div>
-</main>
+</section>
 
 <footer>
-  Fall Detection Project · ESP32 + MPU6050
+  <span>FallGuard · Demo học tập IoT / FreeRTOS / MQTT</span>
+  <span>HiveMQ Public Broker · WebSocket TLS 8884</span>
 </footer>
+</div>
+<div id="toast"></div>
 
 <script>
-  const BROKER = "wss://broker.hivemq.com:8884/mqtt";
+// Giữ nguyên các topic đồng bộ với chương trình ESP32.
+const BROKER_URL = 'wss://broker.hivemq.com:8884/mqtt';
+const TOPIC_DATA = 'utc/falldetect/data';
+const TOPIC_LED = 'utc/falldetect/control/led';
+const TOPIC_BUZZER = 'utc/falldetect/control/buzzer';
+const TOPIC_MODE = 'utc/falldetect/control/mode';
 
-  const TOPIC_DATA = "utc/falldetect/data";
-  const TOPIC_LED = "utc/falldetect/control/led";
-  const TOPIC_BUZZER = "utc/falldetect/control/buzzer";
-  const TOPIC_MODE = "utc/falldetect/control/mode";
+const $ = id => document.getElementById(id);
+let client;
+let mode = 'AUTO';
+let ledOn = false;
+let buzzerOn = false;
+let previousLevel = null;
+let events = [];
+const chartLabels = [];
+const chartValues = [];
 
-  const connection = document.getElementById("connection");
-  const fallStatus = document.getElementById("fallStatus");
+const chart = new Chart($('accelChart'), {
+  type:'line',
+  data:{
+    labels:chartLabels,
+    datasets:[{
+      label:'Gia tốc (g)',
+      data:chartValues,
+      borderColor:'#4263eb',
+      backgroundColor:'rgba(66,99,235,.10)',
+      fill:true,
+      tension:.3,
+      pointRadius:2,
+      borderWidth:2
+    }]
+  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    animation:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{display:false},ticks:{maxTicksLimit:6,color:'#8793a8',font:{size:10}}},
+      y:{beginAtZero:true,suggestedMax:3,grid:{color:'#edf1f7'},ticks:{color:'#8793a8',font:{size:10}}}
+    }
+  }
+});
 
-  let currentMode = "AUTO";
+function showToast(message) {
+  $('toast').textContent = message;
+  $('toast').classList.add('show');
+  setTimeout(() => $('toast').classList.remove('show'), 2500);
+}
+function connectionStatus(online, message) {
+  $('connectionDot').className = 'dot ' + (online ? 'online' : 'offline');
+  $('connectionText').textContent = message;
+}
+function numberValue(...values) {
+  for (const v of values) {
+    if (v !== undefined && v !== null && v !== '' && Number.isFinite(Number(v))) return Number(v);
+  }
+  return null;
+}
+function isOn(v) {
+  return v === true || v === 1 || v === '1' || v === 'ON' || v === 'on' || v === 'true';
+}
+function addEvent(title, detail, type='normal') {
+  const time = new Date().toLocaleTimeString('vi-VN');
+  events.unshift({title, detail:`${time} · ${detail}`, type});
+  events = events.slice(0,5);
+  $('eventCount').textContent = `${events.length} sự kiện`;
+  $('alertHistory').innerHTML = events.map(e => `
+    <div class="event">
+      <div class="event-icon ${e.type==='danger'?'danger':e.type==='warn'?'warn':''}">
+        ${e.type==='danger'?'⚠':e.type==='warn'?'!':'✓'}
+      </div>
+      <div><div class="event-title">${e.title}</div><div class="event-time">${e.detail}</div></div>
+    </div>`).join('');
+}
+function updateLevel(level, fall) {
+  const strong = fall || level >= 2;
+  const mild = !strong && level === 1;
+  $('heroTitle').textContent = strong ? 'Phát hiện cảnh báo mạnh' : mild ? 'Gia tốc tăng bất thường' : 'Trạng thái bình thường';
+  $('heroDesc').textContent = strong
+    ? 'Hệ thống đang ở mức cảnh báo cao. Hãy kiểm tra tình trạng người được giám sát.'
+    : mild
+      ? 'Gia tốc đang cao hơn mức bình thường. Hệ thống tiếp tục theo dõi cảm biến.'
+      : 'Chưa ghi nhận gia tốc vượt ngưỡng cảnh báo trong mô phỏng.';
+  $('heroState').textContent = strong ? 'Cảnh báo mạnh' : mild ? 'Cảnh báo nhẹ' : 'Bình thường';
+  $('levelValue').textContent = strong ? 'MẠNH' : mild ? 'NHẸ' : 'BÌNH THƯỜNG';
+  $('levelValue').style.color = strong ? 'var(--red)' : mild ? 'var(--yellow)' : 'var(--green)';
+  $('levelNote').textContent = strong ? 'Cần kiểm tra ngay' : mild ? 'Cần chú ý' : 'Không có cảnh báo';
 
-  const options = {
-    clean: true,
-    connectTimeout: 10000,
-    reconnectPeriod: 3000
-  };
+  if (previousLevel !== null && previousLevel !== level) {
+    if (strong) addEvent('Cảnh báo mạnh','Gia tốc vượt ngưỡng hoặc cờ té ngã được kích hoạt','danger');
+    else if (mild) addEvent('Cảnh báo nhẹ','Gia tốc vượt ngưỡng bình thường','warn');
+    else addEvent('Trở về bình thường','Mức cảnh báo đã giảm');
+  } else if (previousLevel === null && (strong || mild)) {
+    addEvent(strong?'Cảnh báo mạnh':'Cảnh báo nhẹ','Nhận được trạng thái từ ESP32',strong?'danger':'warn');
+  }
+  previousLevel = level;
+}
+function updateLeds(data, level) {
+  const green = data.green ?? data.ledGreen ?? data.led_green;
+  const yellow = data.yellow ?? data.ledYellow ?? data.led_yellow;
+  const red = data.red ?? data.ledRed ?? data.led_red ?? data.led;
+  const buzzer = data.buzzer ?? data.buzzerOn ?? data.buzzer_on;
 
-  const client = mqtt.connect(BROKER, options);
+  const g = green !== undefined ? isOn(green) : level === 0;
+  const y = yellow !== undefined ? isOn(yellow) : level === 1;
+  const r = red !== undefined ? isOn(red) : level >= 2;
+  const b = buzzer !== undefined ? isOn(buzzer) : level >= 2;
 
-  client.on("connect", () => {
-    connection.textContent = "Đã kết nối MQTT Broker";
-    connection.style.borderLeftColor = "#16a34a";
+  $('greenLed').className = 'bulb' + (g?' on green':'');
+  $('yellowLed').className = 'bulb' + (y?' on yellow':'');
+  $('redLed').className = 'bulb' + (r?' on red':'');
+  $('greenText').textContent = g ? 'Đang bật' : 'Đang tắt';
+  $('yellowText').textContent = y ? 'Đang bật' : 'Đang tắt';
+  $('redText').textContent = (r?'Đèn đỏ bật':'Đèn đỏ tắt') + (b?' · còi bật':' · còi tắt');
+}
+function handleMessage(payload) {
+  let data;
+  try { data = JSON.parse(payload); }
+  catch(e) { console.warn('MQTT payload không phải JSON:',payload); return; }
+
+  const accel = numberValue(data.accelTotal,data.accel,data.acceleration,data.accel_g,data.a);
+  const roll = numberValue(data.roll,data.rollAngle,data.roll_angle);
+  const pitch = numberValue(data.pitch,data.pitchAngle,data.pitch_angle);
+  const fall = isOn(data.fall ?? data.fallDetected ?? data.fall_detected ?? data.fallen);
+  let level = numberValue(data.level,data.alertLevel,data.alert_level,data.status);
+  if (level === null) level = fall ? 2 : accel !== null && accel > 2.2 ? 2 : accel !== null && accel > 1.3 ? 1 : 0;
+  level = Math.max(0,Math.min(2,Math.round(level)));
+
+  if (accel !== null) {
+    $('accelValue').textContent = accel.toFixed(2);
+    chartLabels.push(new Date().toLocaleTimeString('vi-VN'));
+    chartValues.push(Number(accel.toFixed(2)));
+    if (chartLabels.length > 30) { chartLabels.shift(); chartValues.shift(); }
+    chart.update();
+  }
+  if (roll !== null) $('rollValue').textContent = roll.toFixed(1);
+  if (pitch !== null) $('pitchValue').textContent = pitch.toFixed(1);
+
+  $('lastUpdate').textContent = 'Cập nhật lần cuối: ' + new Date().toLocaleTimeString('vi-VN');
+  updateLevel(level,fall);
+  updateLeds(data,level);
+}
+function publish(topic,message) {
+  if (!client || !client.connected) {
+    showToast('MQTT chưa kết nối, chưa gửi được lệnh');
+    return;
+  }
+  client.publish(topic,message);
+}
+function setMode(next) {
+  mode = next;
+  $('autoModeBtn').classList.toggle('active',mode==='AUTO');
+  $('manualModeBtn').classList.toggle('active',mode==='MANUAL');
+  $('ledToggle').disabled = mode !== 'MANUAL';
+  $('buzzerToggle').disabled = mode !== 'MANUAL';
+
+  $('ledHelp').textContent = mode==='MANUAL' ? 'Bấm công tắc để bật/tắt đèn đỏ' : 'ESP32 tự điều khiển';
+  $('buzzerHelp').textContent = mode==='MANUAL' ? 'Bấm công tắc để bật/tắt còi' : 'ESP32 tự điều khiển';
+  $('modeNote').textContent = mode==='AUTO'
+    ? 'Chế độ Tự động: ESP32 điều khiển thiết bị dựa trên dữ liệu cảm biến.'
+    : 'Chế độ Thủ công: các công tắc gửi lệnh MQTT đến ESP32. Firmware phải nhận đúng topic điều khiển.';
+  publish(TOPIC_MODE,mode);
+  showToast(mode==='AUTO'?'Đã chọn chế độ Tự động':'Đã chọn chế độ Thủ công');
+}
+function setToggle(which,on) {
+  if (which==='led') {
+    ledOn=on;
+    $('ledToggle').classList.toggle('on',on);
+    publish(TOPIC_LED,on?'ON':'OFF');
+  } else {
+    buzzerOn=on;
+    $('buzzerToggle').classList.toggle('on',on);
+    publish(TOPIC_BUZZER,on?'ON':'OFF');
+  }
+  showToast((which==='led'?'Đèn đỏ ':'Còi ')+(on?'đã bật':'đã tắt'));
+}
+
+$('autoModeBtn').addEventListener('click',()=>setMode('AUTO'));
+$('manualModeBtn').addEventListener('click',()=>setMode('MANUAL'));
+$('ledToggle').addEventListener('click',()=>{if(mode==='MANUAL')setToggle('led',!ledOn);});
+$('buzzerToggle').addEventListener('click',()=>{if(mode==='MANUAL')setToggle('buzzer',!buzzerOn);});
+
+try {
+  client = mqtt.connect(BROKER_URL,{
+    clientId:'fallguard_web_'+Math.random().toString(16).slice(2,10),
+    clean:true,connectTimeout:10000,reconnectPeriod:3000
+  });
+  client.on('connect',()=>{
+    connectionStatus(true,'Đã kết nối MQTT');
     client.subscribe(TOPIC_DATA);
+    showToast('MQTT đã kết nối');
   });
-
-  client.on("reconnect", () => {
-    connection.textContent = "Đang kết nối lại MQTT...";
-    connection.style.borderLeftColor = "#eab308";
+  client.on('reconnect',()=>connectionStatus(false,'Đang kết nối lại...'));
+  client.on('offline',()=>connectionStatus(false,'MQTT ngoại tuyến'));
+  client.on('error',()=>connectionStatus(false,'Lỗi kết nối MQTT'));
+  client.on('message',(topic,payload)=>{
+    if(topic===TOPIC_DATA)handleMessage(payload.toString());
   });
-
-  client.on("error", (err) => {
-    connection.textContent = "Lỗi MQTT: " + err.message;
-  });
-
-  const labels = [];
-  const accelValues = [];
-  const angleValues = [];
-
-  function makeChart(canvasId, label, data, color) {
-    return new Chart(document.getElementById(canvasId), {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [{
-          label: label,
-          data: data,
-          borderColor: color,
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0.2
-        }]
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: {
-          x: { title: { display: true, text: "Mẫu đo" } },
-          y: { beginAtZero: false }
-        }
-      }
-    });
-  }
-
-  const accelChart = makeChart(
-    "accelChart", "Gia tốc (g)", accelValues, "#2563eb"
-  );
-
-  const angleChart = makeChart(
-    "angleChart", "Góc Roll (°)", angleValues, "#dc2626"
-  );
-
-  client.on("message", (topic, message) => {
-    if (topic !== TOPIC_DATA) return;
-
-    try {
-      const d = JSON.parse(message.toString());
-
-      document.getElementById("accel").textContent =
-        Number(d.accel).toFixed(3);
-
-      document.getElementById("ax").textContent =
-        Number(d.ax).toFixed(2);
-      document.getElementById("ay").textContent =
-        Number(d.ay).toFixed(2);
-      document.getElementById("az").textContent =
-        Number(d.az).toFixed(2);
-
-      document.getElementById("roll").textContent =
-        Number(d.roll).toFixed(1);
-      document.getElementById("pitch").textContent =
-        Number(d.pitch).toFixed(1);
-
-      if (Number(d.fall) === 1 || d.fall === true) {
-        fallStatus.className = "wide alert";
-        fallStatus.textContent =
-          "CẢNH BÁO: PHÁT HIỆN DẤU HIỆU TÉ NGÃ!";
-      } else {
-        fallStatus.className = "wide normal";
-        fallStatus.textContent =
-          "Trạng thái: Chưa phát hiện dấu hiệu té ngã";
-      }
-
-      labels.push(new Date().toLocaleTimeString());
-      accelValues.push(Number(d.accel));
-      angleValues.push(Number(d.roll));
-
-      if (labels.length > 30) {
-        labels.shift();
-        accelValues.shift();
-        angleValues.shift();
-      }
-
-      accelChart.update();
-      angleChart.update();
-
-    } catch (e) {
-      console.error("JSON khong hop le:", e);
-    }
-  });
-
-  function controlDevice(device, state) {
-    if (!client.connected) {
-      alert("Chưa kết nối MQTT Broker!");
-      return;
-    }
-
-    const topic = device === "led" ? TOPIC_LED : TOPIC_BUZZER;
-
-    // Gui lenh manual; ESP32 tu chuyen sang MANUAL
-    client.publish(topic, state);
-
-    document.getElementById(
-      device === "led" ? "ledState" : "buzzerState"
-    ).textContent = state;
-  }
-
-  function setMode(mode) {
-    if (!client.connected) {
-      alert("Chưa kết nối MQTT Broker!");
-      return;
-    }
-
-    client.publish(TOPIC_MODE, mode);
-    currentMode = mode;
-    document.getElementById("modeText").textContent = mode;
-  }
+} catch(e) {
+  connectionStatus(false,'Không thể khởi tạo MQTT');
+  console.error(e);
+}
 </script>
 </body>
 </html>
